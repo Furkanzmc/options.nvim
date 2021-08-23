@@ -1,0 +1,138 @@
+*options.txt*  options.nvim
+
+Author:  Furkan Uzumcu
+
+INTRODUCTION                                                      *options.nvim*
+
+options.nvim is a library for creating custom options. The command interaface
+is similar to Vim's own options.
+
+
+COMMANDS                                                      *options-commands*
+================================================================================
+
+Global ~
+
+These commands are available in any buffer.
+
+:Set                                                                     *:Set*
+
+Set a global option. If you press <Tab>, you will get a list of available
+global options. If you don't provide an option name, it will print the current
+values of the global options.
+
+Example: >
+    :Set shell="zsh"
+    :Set<CR> " Prints the current global option values.
+    :Set sh<TAB> " Completes a list of available global options.
+
+:Setlocal                                                           *:Setlocal*
+
+Like |:Set| but for buffer-local options.
+
+Example: >
+    :Setlocal indentsize=4
+    :Setlocal<CR> " Prints the current global option values.
+    :Setlocal in<TAB> " Completes a list of available local options.
+
+LUA                                                                *options-lua*
+================================================================================
+
+set({name}, {value})                                              *options.set*
+
+    Lua interface for |:Set| command.
+
+    Parameters: ~
+        {name} (string): The name of a registered option.
+
+        {value} (any): Any value. The type must match the expected type of the
+        option.
+
+set_local({name}, {value}, {bufnr})                         *options.set_local*
+
+    Lua interface for |:Setlocal| command.
+
+    Parameters: ~
+        {name} (string): The name of a registered option.
+
+        {value} (any): Any value. The type must match the expected type of the
+        option.
+
+        {bufnr} (integer): Associated buffer handle. It has to be a valid
+        handle. Pass `0` for current buffer.
+
+get_option_value({name}, {bufnr})                    *options.get_option_value*
+
+    Gets the value of the option. If no value was set by the user, returns the
+    default value.
+
+    Parameters: ~
+        {name} (string): The name of a registered option.
+
+        {bufnr} (optional, integer): Associated buffer handle. It has to be a valid
+        handle. Pass `0` for current buffer. If set to `nil`, it will return
+        the global option value.
+
+register_option({opts})                               *options.register_option*
+
+    Registers a new option.
+
+    Here are the expected fields in {opts}:
+
+    Parameters: ~
+        {name} (string): Required.
+
+        {buffer_local} (optional, bool): Defaults to `false`.
+
+        {global} (optional, bool): Defaults to `true`. Or the opposite of
+        {buffer_local}. An option cannot be both global and buffer-local.
+
+        {source} (optional, string): Set this to the plug-in name, or any
+        other identifier. It is used to add a hint when the option value is
+        being printed.
+
+        {default} (any): The default value of the option. The type of the
+        value must be the same as {type_info}.
+
+        {type_info} (string): Any of the following:
+            - `number`
+            - `string`
+            - `boolean`
+            - `table`
+
+        {parser} (optional, function): A function to take the value in string
+        form and convert it to the proper value type.
+
+        Example: >
+            function(value) return string.split(value, ",") end
+
+register_callback({name}, {func})                   *options.register_callback*
+
+    Register a callback for a specific option to be notified whenever it
+    changes.
+
+    Parameters: ~
+        {name} (string): The name of a registered option.
+
+        {func} (function): A function with no arguments.
+
+set_modeline({bufnr})                                     *options.set_modeline*
+
+    Use this function to set buffer specific options based on the contents of
+    a buffer. This is similar to Vim's 'modeline'.
+
+    Parameters: ~
+        {bufnr} (number): The buffer handle that contains the modeline.
+
+    Example: >
+        nvim-options: Setlocal indentsize=4
+
+ABOUT                                                            *options-about*
+================================================================================
+
+Grab the latest version or report a bug on GitHub:
+
+https://github.com/Furkanzmc/options.nvim
+
+vim:tw=80:et:ft=help:norl:
+
