@@ -215,9 +215,7 @@ local function pre_process_set_option(name, value, bufnr)
 end
 
 local function set_option(name, value, bufnr)
-    if bufnr == 0 then
-        bufnr = vim.api.nvim_get_current_buf()
-    end
+    if bufnr == 0 then bufnr = vim.api.nvim_get_current_buf() end
 
     if pre_process_set_option(name, value, bufnr) then return end
 
@@ -266,7 +264,9 @@ function M.get_option_value(name, bufnr)
         return nil
     end
 
-    local buffer_option = get_buffer_option(name, bufnr)
+    local buffer_option = nil
+    if bufnr ~= nil then buffer_option = get_buffer_option(name, bufnr) end
+
     if buffer_option ~= nil then
         return buffer_option.value
     elseif s_current_options[name] ~= nil and s_current_options[name].value ~=
@@ -340,8 +340,7 @@ end
 function M.register_callback(name, func)
     if is_option_registered(name) == false then
         log.error("options",
-                  "Cannot register callback for unregistered option: " ..
-                      name)
+                  "Cannot register callback for unregistered option: " .. name)
         return
     end
 
