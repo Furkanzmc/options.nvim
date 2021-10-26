@@ -10,6 +10,22 @@ local M = {}
 local s_registered_options = {}
 local s_current_options = {}
 local s_callbacks = {}
+local s_variable_sync_initialized = false
+
+local function init_variable_sync()
+    assert(s_variable_sync_initialized == false)
+
+    cmd [[augroup options_nvim_global_var_watch]]
+    cmd [[autocmd!]]
+    cmd [[autocmd CmdlineEnter * if v:event.cmdtype == ":" | call luaeval('require"options".check_for_global_var_change()') | endif]]
+    cmd [[augroup END]]
+end
+
+local function set_target_variable(variable, value) vim.g[variable] = value end
+
+local function is_target_variable_set(variable) return vim.g[variable] ~= nil end
+
+local function get_target_variable_value(variable) return vim.g[variable] end
 
 local function is_option_registered(name)
     return s_registered_options[name] ~= nil
@@ -27,7 +43,6 @@ end
 local function get_buffer_option(name, bufnr)
     assert(bufnr ~= nil, "bufnr has to be valid.")
 
-    local option_info = get_option_info(name)
     local current_option = s_current_options[name]
     if current_option == nil then return nil end
 
@@ -143,19 +158,6 @@ local function execute_callbacks(option_name)
     for _, func in ipairs(s_callbacks[option_name]) do func() end
 end
 
-local function is_option_set(name)
-    if is_option_registered(name) == false then
-        log.error("options", "This option is not registered: " .. name)
-        return false
-    end
-
-    if s_current_options[name] == nil then return s_current_options[name] end
-
-    if s_registered_options[name] == nil then
-        return s_registered_options[name]
-    end
-end
-
 local function split_option_str(option_str)
     local cmps = string.split(option_str, "=")
     local name = cmps[1]
@@ -238,6 +240,7 @@ local function set_option(name, value, bufnr)
             s_current_options[name] = {value = converted_value, buffers = {}}
         end
 
+        current_option = s_current_options[name]
         execute_callbacks(name)
     elseif bufnr == nil and current_option.value ~= converted_value then
         current_option.value = converted_value
@@ -255,6 +258,10 @@ local function set_option(name, value, bufnr)
         end
 
         execute_callbacks(name)
+    end
+
+    if option_info.target_variable ~= nil then
+        set_target_variable(option_info.target_variable, converted_value)
     end
 end
 
@@ -294,14 +301,33 @@ function M.register_option(opts)
     opts.global = opts.global or not opts.buffer_local
     opts.source = opts.source or ""
 
+    if opts.buffer_local and opts.target_variable then
+        assert(false,
+               "You can only use target_variable with global options: " ..
+                   opts.name)
+    end
+
+    if opts.target_variable ~= nil and
+        not is_target_variable_set(opts.target_variable) then
+        set_target_variable(opts.target_variable, opts.default)
+    end
+
     s_registered_options[opts.name] = {
         default = opts.default,
         type_info = opts.type_info,
         source = opts.source,
         buffer_local = opts.buffer_local,
         global = opts.global,
-        parser = opts.parser
+        parser = opts.parser,
+        target_variable = opts.target_variable
     }
+
+    if opts.target_variable ~= nil and
+        is_target_variable_set(opts.target_variable) then
+        set_option(opts.name, get_target_variable_value(opts.target_variable))
+
+        if s_variable_sync_initialized == false then init_variable_sync() end
+    end
 end
 
 function M.run_set_cmd(option_str, bufnr)
@@ -369,6 +395,20 @@ function M.set_modeline(bufnr)
     local modeline = string.sub(last_line, start_index, #last_line)
     modeline = string.split(string.gsub(modeline, "Setlocal ", ""), " ")
     for _, opt in ipairs(modeline) do M.run_set_cmd(opt, bufnr) end
+end
+
+function M.check_for_global_var_change()
+    local cmd_line = fn.getreg(":")
+    if string.match(cmd_line, "let g:") == nil then return end
+
+    local var_name = string.match(cmd_line, "g:[^%s.=]+")
+    var_name = string.gsub(var_name, "g:", "")
+    for name, info in pairs(s_registered_options) do
+        if info.target_variable == var_name then
+            set_option(name, vim.g[var_name])
+            break
+        end
+    end
 end
 
 return M
