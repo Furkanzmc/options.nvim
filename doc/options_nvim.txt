@@ -1,4 +1,4 @@
-*options.txt*  options.nvim
+*options_nvim.txt*  options.nvim
 
 Author:  Furkan Uzumcu
 
