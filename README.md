@@ -87,7 +87,7 @@ options.register_option({
     default = 4,
     type_info = "number",
     source = "buffers",
-    global = true,
+    global = true, -- This can also be a global option.
     target_variable="myplugin_indentsize"
 })
 
@@ -101,17 +101,17 @@ end)
 
 ```vim
 " Prints the default value 4
-:Set indentsize
+:Setlocal indentsize
 
 " Sets the indent size to 32
-:let g:myplugin_indentsize=32
+:let b:myplugin_indentsize=32
 
 " Prints the new value 32
-:Set indentsize
+:Setlocal indentsize
 
 " Sets the indent size to 4
-:Set indentsize=4
+:Setlocal indentsize=4
 
 " Prints the new value 4
-:let g:myplugin_indentsize
+:let b:myplugin_indentsize
 ```

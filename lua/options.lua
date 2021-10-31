@@ -11,26 +11,53 @@ local s_registered_options = {}
 local s_current_options = {}
 local s_callbacks = {}
 local s_variable_sync_initialized = false
+local s_buffer_sync_autocmd_initialized = false
 
 local function init_variable_sync()
     assert(s_variable_sync_initialized == false)
 
-    cmd([[augroup options_nvim_global_var_watch]])
+    cmd([[augroup options_nvim_var_watch]])
     cmd([[autocmd!]])
-    cmd([[autocmd CmdlineEnter * if v:event.cmdtype == ":" | call luaeval('require"options".check_for_global_var_change()') | endif]])
+    cmd(
+        [[autocmd CmdlineEnter * if v:event.cmdtype == ":" | call luaeval('require"options".check_var_change()') | endif]]
+    )
     cmd([[augroup END]])
 end
 
-local function set_target_variable(variable, value)
-    vim.g[variable] = value
+local function set_target_variable(variable, value, bufnr)
+    if bufnr == nil then
+        vim.g[variable] = value
+    else
+        vim.api.nvim_buf_set_var(bufnr, variable, value)
+    end
 end
 
-local function is_target_variable_set(variable)
-    return vim.g[variable] ~= nil
+local function is_target_variable_set(variable, bufnr)
+    if bufnr == nil then
+        return vim.g[variable] ~= nil
+    end
+
+    local exists, _ = pcall(vim.api.nvim_buf_get_var, bufnr, variable)
+    return exists
 end
 
-local function get_target_variable_value(variable)
-    return vim.g[variable]
+local function setup_buffer_var_sync()
+    assert(s_buffer_sync_autocmd_initialized == false)
+
+    cmd([[augroup options_nvim_buffer_var_watch]])
+    cmd([[autocmd!]])
+    cmd([[autocmd BufNew * lua require"options".sync_buffer_vars(vim.api.nvim_get_current_buf())]])
+    cmd([[augroup END]])
+end
+
+local function get_target_variable_value(variable, bufnr)
+    if bufnr ~= nil then
+        return vim.g[variable] ~= nil
+    end
+
+    local exists, value = pcall(vim.api.nvim_buf_get_var, bufnr, variable)
+    assert(exists, "Variable doesn't exist: " .. variable)
+    return value
 end
 
 local function is_option_registered(name)
@@ -295,7 +322,40 @@ local function set_option(name, value, bufnr)
     end
 
     if option_info.target_variable ~= nil then
-        set_target_variable(option_info.target_variable, converted_value)
+        set_target_variable(option_info.target_variable, converted_value, bufnr)
+    end
+end
+
+local function check_for_global_var_change()
+    local cmd_line = fn.getreg(":")
+    if string.match(cmd_line, "let g:") == nil then
+        return
+    end
+
+    local var_name = string.match(cmd_line, "g:[^%s.=]+")
+    var_name = string.gsub(var_name, "g:", "")
+    for name, info in pairs(s_registered_options) do
+        if info.target_variable == var_name then
+            set_option(name, get_target_variable_value(var_name))
+            break
+        end
+    end
+end
+
+local function check_for_buffer_var_change()
+    local cmd_line = fn.getreg(":")
+    if string.match(cmd_line, "let b:") == nil then
+        return
+    end
+
+    local var_name = string.match(cmd_line, "b:[^%s.=]+")
+    var_name = string.gsub(var_name, "b:", "")
+    local bufnr = vim.api.nvim_get_current_buf()
+    for name, info in pairs(s_registered_options) do
+        if info.target_variable == var_name then
+            set_option(name, get_target_variable_value(var_name), bufnr)
+            break
+        end
     end
 end
 
@@ -339,12 +399,13 @@ function M.register_option(opts)
     opts.global = opts.global or not opts.buffer_local
     opts.source = opts.source or ""
 
-    if opts.buffer_local and opts.target_variable then
-        assert(false, "You can only use target_variable with global options: " .. opts.name)
-    end
-
-    if opts.target_variable ~= nil and not is_target_variable_set(opts.target_variable) then
-        set_target_variable(opts.target_variable, opts.default)
+    if
+        opts.buffer_local
+        and opts.target_variable ~= nil
+        and not s_buffer_sync_autocmd_initialized
+    then
+        setup_buffer_var_sync()
+        s_buffer_sync_autocmd_initialized = true
     end
 
     s_registered_options[opts.name] = {
@@ -357,12 +418,22 @@ function M.register_option(opts)
         target_variable = opts.target_variable,
     }
 
-    if opts.target_variable ~= nil and is_target_variable_set(opts.target_variable) then
-        set_option(opts.name, get_target_variable_value(opts.target_variable))
+    if opts.target_variable ~= nil and s_variable_sync_initialized == false then
+        init_variable_sync()
+    end
 
-        if s_variable_sync_initialized == false then
-            init_variable_sync()
-        end
+    if
+        opts.target_variable ~= nil
+        and opts.global
+        and is_target_variable_set(opts.target_variable)
+    then
+        set_option(opts.name, get_target_variable_value(opts.target_variable))
+    elseif
+        opts.target_variable ~= nil
+        and opts.global
+        and not is_target_variable_set(opts.target_variable)
+    then
+        set_target_variable(opts.target_variable, opts.default)
     end
 end
 
@@ -439,18 +510,19 @@ function M.set_modeline(bufnr)
     end
 end
 
-function M.check_for_global_var_change()
-    local cmd_line = fn.getreg(":")
-    if string.match(cmd_line, "let g:") == nil then
-        return
-    end
+function M.check_var_change()
+    check_for_global_var_change()
+    check_for_buffer_var_change()
+end
 
-    local var_name = string.match(cmd_line, "g:[^%s.=]+")
-    var_name = string.gsub(var_name, "g:", "")
-    for name, info in pairs(s_registered_options) do
-        if info.target_variable == var_name then
-            set_option(name, vim.g[var_name])
-            break
+function M.sync_buffer_vars(bufnr)
+    for key, info in pairs(s_registered_options) do
+        if info.buffer_local == true and info.target_variable ~= nil then
+            if is_target_variable_set(key, bufnr) then
+                set_option(key, get_target_variable_value(info.target_variable, bufnr), bufnr)
+            else
+                set_target_variable(info.target_variable, M.get_option_value(key, bufnr), bufnr)
+            end
         end
     end
 end

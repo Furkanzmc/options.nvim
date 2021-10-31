@@ -104,12 +104,45 @@ register_option({opts})                               *options.register_option*
         form and convert it to the proper value type.
 
 
-        {variable_target} (optional, string): Whenever an option changes, it
+        {target_variable} (optional, string): Whenever an option changes, it
         can also assing the same value to a global variable to help support
         configuration by using both options.nvim and Vim variables.
 
         Example: >
-            function(value) return string.split(value, ",") end
+            local options = require "options"
+
+            options.register_option({
+                name = "indentsize",
+                default = 4,
+                type_info = "number",
+                source = "buffers",
+                global = true, -- This can also be a global option.
+                target_variable="myplugin_indentsize"
+            })
+
+            options.register_callback("indentsize", function()
+                local isize = options.get_option_value('indentsize',
+                                                    vim.api.nvim_get_current_buf())
+                cmd(string.format("setlocal tabstop=%s softtabstop=%s shiftwidth=%s", isize,
+                                isize, isize))
+            end)
+            ```
+
+            ```vim
+            " Prints the default value 4
+            :Setlocal indentsize
+
+            " Sets the indent size to 32
+            :let b:myplugin_indentsize=32
+
+            " Prints the new value 32
+            :Setlocal indentsize
+
+            " Sets the indent size to 4
+            :Setlocal indentsize=4
+
+            " Prints the new value 4
+            :let b:myplugin_indentsize
 
 register_callback({name}, {func})                   *options.register_callback*
 
