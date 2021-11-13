@@ -3,8 +3,8 @@
 local vim = vim
 local cmd = vim.cmd
 local fn = vim.fn
-local log = require("futils.log")
-local typing = require("futils.typing")
+local log = require("options.log")
+local typing = require("options.typing")
 local M = {}
 
 local s_registered_options = {}
