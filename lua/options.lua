@@ -493,7 +493,7 @@ function M.set_modeline(bufnr)
 
     local last_line = vim.api.nvim_buf_get_lines(bufnr, last_linenr - 1, last_linenr, true)[1]
 
-    if string.match(last_line, "nvim-options:") == nil then
+    if string.match(last_line, "nvim%-options:") == nil then
         return
     end
 
