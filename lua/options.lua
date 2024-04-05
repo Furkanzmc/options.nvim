@@ -60,12 +60,8 @@ local function get_target_variable_value(variable, bufnr)
     return value
 end
 
-local function is_option_registered(name)
-    return s_registered_options[name] ~= nil
-end
-
 local function get_option_info(name)
-    if is_option_registered(name) == false then
+    if M.is_option_registered(name) == false then
         log.error("options", "This option is not registered: " .. name)
         return nil
     end
@@ -244,7 +240,7 @@ local function pre_process_set_option(name, value, bufnr)
         return true
     end
 
-    if is_option_registered(name) == false then
+    if M.is_option_registered(name) == false then
         log.error("options", "This option is not registered: " .. name)
         return true
     end
@@ -359,8 +355,12 @@ local function check_for_buffer_var_change()
     end
 end
 
+function M.is_option_registered(name)
+    return s_registered_options[name] ~= nil
+end
+
 function M.get_option_value(name, bufnr)
-    if is_option_registered(name) == false then
+    if M.is_option_registered(name) == false then
         log.error("options", "This option is not registered: " .. name)
         return nil
     end
@@ -380,7 +380,7 @@ function M.get_option_value(name, bufnr)
 end
 
 function M.register_option(opts)
-    if is_option_registered(opts.name) then
+    if M.is_option_registered(opts.name) then
         log.error("options", "This option is already registered: " .. opts.name)
         return
     end
@@ -473,7 +473,7 @@ function M.list_options(arg_lead, buffer_local)
 end
 
 function M.register_callback(name, func)
-    if is_option_registered(name) == false then
+    if M.is_option_registered(name) == false then
         log.error("options", "Cannot register callback for unregistered option: " .. name)
         return
     end

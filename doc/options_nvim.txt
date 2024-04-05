@@ -61,6 +61,14 @@ set_local({name}, {value}, {bufnr})                         *options.set_local*
         {bufnr} (integer): Associated buffer handle. It has to be a valid
         handle. Pass `0` for current buffer.
 
+is_option_registered({name})                    *options.is_option_registered*
+
+    Checks whether the given option is registered. It currently doesn't
+    distinguish between a local option and a global option.
+
+    Parameters: ~
+        {name} (string): The name of a registered option.
+
 get_option_value({name}, {bufnr})                    *options.get_option_value*
 
     Gets the value of the option. If no value was set by the user, returns the
