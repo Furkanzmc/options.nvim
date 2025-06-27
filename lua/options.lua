@@ -207,7 +207,7 @@ local function execute_callbacks(option_name)
 end
 
 local function split_option_str(option_str)
-    local cmps = string.split(option_str, "=")
+    local cmps = vim.split(option_str, "=")
     local name = cmps[1]
     local value = nil
     if #cmps == 2 then
@@ -226,7 +226,7 @@ local function convert_value(value, option_info)
     elseif option_info.type_info == "string" then
         converted_value = tostring(value)
     elseif option_info.type_info == "table" then
-        converted_value = string.split(tostring(value), ",")
+        converted_value = vim.split(tostring(value), ",")
     elseif option_info.parser ~= nil then
         converted_value = option_info.parser(converted_value)
     end
@@ -504,7 +504,7 @@ function M.set_modeline(bufnr)
     end
 
     local modeline = string.sub(last_line, start_index, #last_line)
-    modeline = string.split(string.gsub(modeline, "Setlocal ", ""), " ")
+    modeline = vim.split(string.gsub(modeline, "Setlocal ", ""), " ")
     for _, opt in ipairs(modeline) do
         M.run_set_cmd(opt, bufnr)
     end
